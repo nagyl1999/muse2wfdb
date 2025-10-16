@@ -7,7 +7,7 @@
 
 Install directly from PyPI:
 
-```
+```bash
 pip install muse2wfdb
 ```
 
