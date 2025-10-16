@@ -1,0 +1,17 @@
+"""
+muse2wfdb
+---------
+
+Convert GE MUSE XML ECG exports to WFDB format.
+
+"""
+
+__version__ = "1.0.0"
+__author__  = "Levente Nagy"
+__license__ = "MIT"
+
+from .converter import muse_to_wfdb
+
+__all__ = [
+    "muse_to_wfdb"
+]
