@@ -1,6 +1,6 @@
 [project]
 name = "muse2wfdb"
-version = "1.0.0"
+version = "1.1.0"
 description = "Convert GE MUSE ECG XML exports to WFDB format"
 authors = [{ name = "Levente Nagy" }]
 license = { text = "MIT" }
