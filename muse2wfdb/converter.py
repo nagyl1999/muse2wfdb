@@ -21,8 +21,11 @@ LEAD_NAMES: List[str] = [
     'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
 ]
 
-# Global dictionary to store waveform data per lead
-lead_waveforms: Dict[str, np.ndarray] = {lead: np.array([]) for lead in LEAD_NAMES}
+QRS_TYPE_MAP = {
+    "0": "N",   # Normal
+    "1": "V",   # Ventricular
+    "2": "S",   # Supraventricular
+}
 
 
 def read_muse_file(path: str) -> Dict[str, Any]:
@@ -59,13 +62,15 @@ def select_waveform(ecg: Dict[str, Any]) -> Dict[str, Any]:
     raise ValueError("No 'Rhythm' waveform found in MUSE ECG file.")
 
 
-def process_waveforms(waveform: Dict[str, Any]) -> None:
+def process_waveforms(waveform: Dict[str, Any]) -> Dict[str, np.ndarray]:
     """
     Decode base64 ECG waveforms for each lead and compute derived leads.
 
     Args:
         waveform: The selected waveform dictionary from the MUSE file.
     """
+    lead_waveforms: Dict[str, np.ndarray] = {lead_name: [] for lead_name in LEAD_NAMES}
+
     for lead in waveform["LeadData"]:
         lead_data = lead["WaveFormData"]
         decoded = base64.b64decode(lead_data)
@@ -78,12 +83,15 @@ def process_waveforms(waveform: Dict[str, Any]) -> None:
     lead_waveforms["aVL"] = lead_waveforms["I"] - 0.5 * lead_waveforms["II"]
     lead_waveforms["aVF"] = lead_waveforms["II"] - 0.5 * lead_waveforms["I"]
 
+    return lead_waveforms
 
-def save_wfdb(output_name: str = "example_record", fs: int = 500) -> None:
+
+def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_record", fs: int = 500) -> None:
     """
     Save the processed ECG signals into WFDB format (.hea and .dat files).
 
     Args:
+        lead_waveforms: The processed waveforms of the MUSE export.
         output_name: The base name for the output WFDB files.
         fs: Sampling frequency in Hz (default: 500).
     """
@@ -101,11 +109,43 @@ def save_wfdb(output_name: str = "example_record", fs: int = 500) -> None:
         fs=fs,
         units=["mV"] * len(LEAD_NAMES),
         sig_name=LEAD_NAMES,
-        p_signal=signals
+        p_signal=signals,
+        fmt=['16'] * signals.shape[1]
     )
 
 
-def muse_to_wfdb(path: str, output_name: str = "example_record") -> None:
+def save_qrs_annotations(record_name: str, qrs_data: list, fs: int = 500):
+    """
+    Save QRS annotations from parsed MUSE XML data to a WFDB .qrs file.
+
+    Parameters
+    ----------
+    record_name : str
+        Name of the WFDB record (without extension)
+    qrs_data : list[dict]
+        List of QRS entries, each with keys ['Number', 'Type', 'Time']
+    fs : int
+        Sampling frequency (Hz)
+    """
+    # Convert <Time> (ms) to sample index
+    samples = np.array([int(qrs['Time']) for qrs in qrs_data])
+    
+    # Symbol: all 'N' (normal) by default; can map from 'Type'
+    symbols = np.array([QRS_TYPE_MAP.get(qrs['Type'], 'N') for qrs in qrs_data])
+
+    # Optional aux notes
+    aux_notes = np.array([f"QRS_{qrs['Number']}" for qrs in qrs_data])
+
+    ann = wfdb.wrann(
+        record_name=record_name,
+        sample=samples,
+        symbol=symbols,
+        aux_note=aux_notes,
+        extension='atr'
+    )
+
+
+def muse_to_wfdb(path: str, output_name: str = "wfdb_record") -> None:
     """
     Main function to convert a MUSE XML ECG file into WFDB format.
 
@@ -115,5 +155,17 @@ def muse_to_wfdb(path: str, output_name: str = "example_record") -> None:
     """
     ecg = read_muse_file(path)
     waveform = select_waveform(ecg)
-    process_waveforms(waveform)
-    save_wfdb(output_name)
+
+    # Process leads
+    frequency = int(ecg["RestingECG"]["Waveform"][0]["SampleBase"])
+    lead_waveforms = process_waveforms(waveform)
+
+    # Save processed data in WFDB format
+    save_wfdb(lead_waveforms, output_name, frequency)
+
+    if "QRS" not in ecg["RestingECG"]["QRSTimesTypes"]:
+        raise ValueError("No 'Rhythm' waveform found in MUSE ECG file, .dat file saved.")
+    
+    # Save complexes in WFDB format
+    complexes = ecg["RestingECG"]["QRSTimesTypes"]["QRS"]
+    save_qrs_annotations(output_name, complexes)
