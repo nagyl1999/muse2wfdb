@@ -104,8 +104,6 @@ def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_re
     # Stack all leads into (N, 12) matrix
     signals = np.column_stack(signals)
 
-    print(comments)
-
     wfdb.wrsamp(
         record_name=output_name,
         fs=fs,

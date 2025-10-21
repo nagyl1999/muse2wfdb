@@ -4,7 +4,7 @@ import wfdb
 muse_export = "examples/anonim_pac_xml_export.txt"
 wfdb_filename = "patient001_ecg"
 
-annotations = muse_to_wfdb(muse_export, wfdb_filename, ['Age: 58', 'Dx: 316998'])
+annotations = muse_to_wfdb(muse_export, wfdb_filename, ['Age: 75', 'Dx: 316998'])
 
 record = wfdb.rdrecord(wfdb_filename)
 annotation = None
