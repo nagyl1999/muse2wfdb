@@ -90,7 +90,7 @@ def process_waveforms(waveform: Dict[str, Any]) -> Dict[str, np.ndarray]:
 
     for lead in lead_list:
         lead_id = lead["LeadID"].strip().upper()
-        lead_data = lead["WaveFormData"].strip().upper()
+        lead_data = lead["WaveFormData"]
         decoded = base64.b64decode(lead_data)
         samples = np.frombuffer(decoded, dtype="<i2")
 
