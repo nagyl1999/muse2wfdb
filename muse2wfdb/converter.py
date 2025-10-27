@@ -96,7 +96,7 @@ def process_waveforms(waveform: Dict[str, Any]) -> Dict[str, np.ndarray]:
 
         scale = UNIT_SCALE_MAP.get(lead["LeadAmplitudeUnits"].strip().upper())
         if scale is None:
-            raise ValueError(f"Unknown amplitude unit: {lead["LeadAmplitudeUnits"]}")
+            raise ValueError(f"Unknown amplitude unit: {lead['LeadAmplitudeUnits']}")
 
         # Convert to mV
         lead_waveforms[lead_id] = samples * float(lead["LeadAmplitudeUnitsPerBit"]) * scale
