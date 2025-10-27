@@ -98,7 +98,8 @@ def process_waveforms(waveform: Dict[str, Any]) -> Dict[str, np.ndarray]:
         if scale is None:
             raise ValueError(f"Unknown amplitude unit: {lead["LeadAmplitudeUnits"]}")
 
-        lead_waveforms[lead_id] = samples * float(lead["LeadAmplitudeUnitsPerBit"]) * scale # convert to mV
+        # Convert to mV
+        lead_waveforms[lead_id] = samples * float(lead["LeadAmplitudeUnitsPerBit"]) * scale
         logger.debug("Processed lead %s: %s samples.", lead_id, len(samples))
 
     # Compute derived leads
@@ -114,7 +115,8 @@ def process_waveforms(waveform: Dict[str, Any]) -> Dict[str, np.ndarray]:
     return lead_waveforms
 
 
-def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_record", comments: Optional[List[str]] = None, fs: int = 500) -> None:
+def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_record",
+              comments: Optional[List[str]] = None, fs: int = 500) -> None:
     """
     Save the processed ECG signals into WFDB format (.hea and .dat files).
 
@@ -183,7 +185,8 @@ def save_qrs_annotations(record_name: str, qrs_data: list):
     logger.debug("Saved %s QRS annotations.", len(samples))
 
 
-def muse_to_wfdb(path: str, output_name: str = "wfdb_record", comments: Optional[List[str]] = None) -> bool:
+def muse_to_wfdb(path: str, output_name: str = "wfdb_record",
+                 comments: Optional[List[str]] = None) -> bool:
     """
     Main function to convert a MUSE XML ECG file into WFDB format.
 
