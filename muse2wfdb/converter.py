@@ -8,11 +8,14 @@ License: MIT
 """
 
 
+import os
 import base64
 import logging
 
 from pathlib import Path
+from contextlib import contextmanager
 from typing import Dict, Any, Optional, List
+
 
 import wfdb
 import xmltodict
@@ -38,6 +41,23 @@ UNIT_SCALE_MAP = {
     "MILLIVOLTS": 1.0,    # mV → mV
     "VOLTS": 1000.0       #  V → mV
 }
+
+@contextmanager
+def change_dir(destination):
+    """
+    Change the current working directory temporarily because the wfdb 
+    package handles directories unreliably when writing header (.hea) 
+    and annotation (.atr) files, often causing errors.
+
+    Args:
+        destination: Path to the new working directory.
+    """
+    cwd = os.getcwd()
+    try:
+        os.chdir(destination)
+        yield
+    finally:
+        os.chdir(cwd)
 
 
 def read_muse_file(path: str) -> Dict[str, Any]:
@@ -128,6 +148,9 @@ def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_re
     comments = comments or []
     logger.info("Saving WFDB record '%s' at %s Hz", output_name, fs)
 
+    # Convert record_name string to a Path object for robust handling
+    output_path = Path(output_name)
+
     signals = []
     for lead in LEAD_NAMES:
         if lead_waveforms[lead].size == 0:
@@ -137,15 +160,16 @@ def save_wfdb(lead_waveforms: Dict[str, np.ndarray], output_name: str = "wfdb_re
     # Stack all leads into (N, 12) matrix
     signals = np.column_stack(signals)
 
-    wfdb.wrsamp(
-        record_name=output_name,
-        fs=fs,
-        units=["mV"] * len(LEAD_NAMES),
-        sig_name=LEAD_NAMES,
-        p_signal=signals,
-        fmt=['16'] * signals.shape[1],
-        comments=comments
-    )
+    with change_dir(output_path.parent):
+        wfdb.wrsamp(
+            record_name=str(output_path.name),
+            fs=fs,
+            units=["mV"] * len(LEAD_NAMES),
+            sig_name=LEAD_NAMES,
+            p_signal=signals,
+            fmt=['16'] * signals.shape[1],
+            comments=comments
+        )
 
     logger.info("WFDB files saved: %s.hea / %s.dat", output_name, output_name)
 
@@ -165,22 +189,26 @@ def save_qrs_annotations(record_name: str, qrs_data: list):
     """
     logger.info("Saving QRS annotations for record '%s'", record_name)
 
+    # Convert record_name string to a Path object for robust handling
+    output_path = Path(record_name)
+
     # Convert <Time> (ms) to sample index
     samples = np.array([int(qrs['Time']) for qrs in qrs_data])
 
-    # Symbol: all 'N' (normal) by default; can map from 'Type'
-    symbols = np.array([QRS_TYPE_MAP.get(qrs['Type'], 'N') for qrs in qrs_data])
+    # Symbol: all '?' by default; can map from 'Type'
+    symbols = np.array([QRS_TYPE_MAP.get(qrs['Type'], '?') for qrs in qrs_data])
 
     # Optional aux notes
     aux_notes = np.array([f"QRS_{qrs['Number']}" for qrs in qrs_data])
 
-    wfdb.wrann(
-        record_name=record_name,
-        sample=samples,
-        symbol=symbols,
-        aux_note=aux_notes,
-        extension='atr'
-    )
+    with change_dir(output_path.parent):
+        wfdb.wrann(
+            record_name=str(output_path.name),
+            sample=samples,
+            symbol=symbols,
+            aux_note=aux_notes,
+            extension='atr'
+        )
 
     logger.debug("Saved %s QRS annotations.", len(samples))
 
